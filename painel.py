@@ -17,6 +17,10 @@ import pandas as pd
 PASTA = Path(__file__).parent / "dados"
 COMPLETO = "ano completo"
 
+# True  = somente visualização (use esta opção na versão publicada na internet).
+# False = mostra também a aba "Alimentar dados" (use no seu computador).
+SOMENTE_LEITURA = True
+
 # Cada tabela do painel: arquivo, colunas obrigatórias e quais são numéricas.
 TABELAS = {
     "Focos de calor por ano": {
@@ -152,6 +156,7 @@ def main() -> None:
                           separators=",.", hovermode="x unified",
                           legend=dict(orientation="h", y=-0.18),
                           yaxis_title=titulo_y, xaxis_title=None)
+        fig.update_yaxes(tickformat=",.0f")
         fig.update_xaxes(dtick=2 if fig.data and len(fig.data[0].x) > 12 else 1)
         return fig
 
@@ -174,40 +179,45 @@ def main() -> None:
     st.title("🔥 Painel de Monitoramento de Incêndios Florestais")
     st.caption("São Félix do Xingu · Pará · focos de calor do satélite de referência do INPE (AQUA)")
 
-    aba_painel, aba_dados, aba_sobre = st.tabs(["📊 Painel", "✏️ Alimentar dados", "ℹ️ Sobre os dados"])
+    if SOMENTE_LEITURA:
+        aba_painel, aba_sobre = st.tabs(["📊 Painel", "ℹ️ Sobre os dados"])
+        aba_dados = None
+    else:
+        aba_painel, aba_dados, aba_sobre = st.tabs(["📊 Painel", "✏️ Alimentar dados", "ℹ️ Sobre os dados"])
 
     # ---- Aba 2: alimentar dados --------------------------------------------
-    with aba_dados:
-        st.write("Escolha a tabela, edite as células ou adicione linhas no fim, e clique em **Salvar**. "
-                 "O painel se atualiza na hora.")
-        nome = st.selectbox("Tabela", list(TABELAS))
-        cfg = TABELAS[nome]
-        st.caption(cfg["ajuda"])
+    if aba_dados is not None:
+        with aba_dados:
+            st.write("Escolha a tabela, edite as células ou adicione linhas no fim, e clique em **Salvar**. "
+                     "O painel se atualiza na hora.")
+            nome = st.selectbox("Tabela", list(TABELAS))
+            cfg = TABELAS[nome]
+            st.caption(cfg["ajuda"])
 
-        editada = st.data_editor(carregar(nome), num_rows="dynamic", hide_index=True,
-                                 use_container_width=True, key=f"editor_{nome}")
-        if st.button("💾 Salvar alterações", type="primary"):
-            try:
-                salvar(editada, nome)
-                st.success("Dados salvos.")
-                st.rerun()
-            except ValueError as erro:
-                st.error(f"Não salvei: {erro}")
-
-        st.divider()
-        st.write("**Ou substitua a tabela inteira por um arquivo CSV**")
-        st.caption(f"Colunas esperadas: {', '.join(cfg['colunas'])}")
-        enviado = st.file_uploader("Arquivo CSV", type="csv", key=f"upload_{nome}")
-        if enviado is not None:
-            try:
-                novo = validar(pd.read_csv(enviado, sep=None, engine="python"), nome)
-                st.dataframe(novo, hide_index=True, use_container_width=True)
-                if st.button("Substituir a tabela por este arquivo"):
-                    salvar(novo, nome)
-                    st.success("Tabela substituída.")
+            editada = st.data_editor(carregar(nome), num_rows="dynamic", hide_index=True,
+                                     use_container_width=True, key=f"editor_{nome}")
+            if st.button("💾 Salvar alterações", type="primary"):
+                try:
+                    salvar(editada, nome)
+                    st.success("Dados salvos.")
                     st.rerun()
-            except (ValueError, pd.errors.ParserError) as erro:
-                st.error(f"Arquivo não aceito: {erro}")
+                except ValueError as erro:
+                    st.error(f"Não salvei: {erro}")
+
+            st.divider()
+            st.write("**Ou substitua a tabela inteira por um arquivo CSV**")
+            st.caption(f"Colunas esperadas: {', '.join(cfg['colunas'])}")
+            enviado = st.file_uploader("Arquivo CSV", type="csv", key=f"upload_{nome}")
+            if enviado is not None:
+                try:
+                    novo = validar(pd.read_csv(enviado, sep=None, engine="python"), nome)
+                    st.dataframe(novo, hide_index=True, use_container_width=True)
+                    if st.button("Substituir a tabela por este arquivo"):
+                        salvar(novo, nome)
+                        st.success("Tabela substituída.")
+                        st.rerun()
+                except (ValueError, pd.errors.ParserError) as erro:
+                    st.error(f"Arquivo não aceito: {erro}")
 
     # ---- Aba 3: sobre -------------------------------------------------------
     with aba_sobre:
@@ -218,8 +228,7 @@ def main() -> None:
             "compilados pelo Statmapa.\n"
             "- **Desmatamento:** INPE, PRODES, compilado pelo Statmapa.\n"
             "- **Indicadores de contexto:** a fonte de cada número está na coluna *fonte* da tabela.\n\n"
-            "Para atualizar com dados oficiais, consulte o BDQueimadas do INPE e lance os totais "
-            "na aba *Alimentar dados*."
+            "Os dados são atualizados pelo responsável pelo painel a partir do BDQueimadas e do PRODES, do INPE."
         )
 
 
@@ -235,8 +244,8 @@ def main() -> None:
             c[2].metric("Média anual histórica", br(r["media"]),
                         f"{pct(r['var_media'])} no último ano", delta_color="inverse")
         if r["parcial"] is not None:
-            c[1].metric(f"Focos em {int(r['parcial']['ano'])}", br(r["parcial"]["focos"]),
-                        r["parcial"]["periodo"], delta_color="off")
+            c[1].metric(f"Focos em {int(r['parcial']['ano'])}", br(r["parcial"]["focos"]))
+            c[1].caption(r["parcial"]["periodo"])
         if r["densidade"] is not None:
             c[3].metric("Focos por 1.000 km²", br(r["densidade"], 2))
         if r["desmat"] is not None:
@@ -300,7 +309,7 @@ def main() -> None:
                 fig.add_scatter(x=junto["ano"], y=junto["km2"], name="Desmatamento (km²)", yaxis="y2",
                                 mode="lines+markers", line=dict(color=COR_LINHA, width=2.5),
                                 hovertemplate="%{y:,.1f} km²<extra></extra>")
-                fig.update_layout(yaxis2=dict(title="km²", overlaying="y", side="right", showgrid=False))
+                fig.update_layout(yaxis2=dict(title="km²", overlaying="y", side="right", showgrid=False, tickformat=",.0f"))
                 st.plotly_chart(layout(fig, "focos"), use_container_width=True)
 
         st.subheader("Quando e onde o fogo se concentra")
