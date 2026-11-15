@@ -1,0 +1,11 @@
+indicador,valor,unidade,periodo,fonte
+area_km2,84212.9,km2,Censo 2022,IBGE
+pct_agosto,48.93,%,2003 a 2025,Statmapa sobre INPE Programa Queimadas
+pct_ago_set,82.32,%,2003 a 2025,Statmapa sobre INPE Programa Queimadas
+pct_pastagem,55.68,%,2025,Statmapa sobre INPE e MapBiomas
+area_queimada_km2,1399,km2,2025,Statmapa sobre INPE AQ1km
+ranking_pa,1,posição,2025,Statmapa sobre INPE Programa Queimadas
+ranking_br,4,posição,2025,Statmapa sobre INPE Programa Queimadas
+focos_apa_triunfo,3334,focos,2024,InfoAmazonia sobre INPE BDQueimadas
+focos_ti_kayapo,3259,focos,2024,InfoAmazonia sobre INPE BDQueimadas
+deter_12m_km2,116.8,km2,out/2025 a set/2026,Statmapa sobre INPE DETER
